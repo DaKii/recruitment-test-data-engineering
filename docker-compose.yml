@@ -20,8 +20,3 @@ services:
     volumes:
       - ./data:/data
 
-  example-python:
-    image: example-python
-    build: images/example-python
-    volumes:
-      - ./data:/data
