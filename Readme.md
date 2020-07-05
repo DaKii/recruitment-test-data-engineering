@@ -12,3 +12,7 @@
 
 ## solution-script
 - sql script that creates the table, the python program already has an option to drop and re-create the tables in order to reapply the schemas easier.
+
+## To run python program
+- docker-compose build
+- docker-compose run solution
