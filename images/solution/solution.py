@@ -14,7 +14,7 @@ config = {
   'host': "database",
 }
 
-
+# Connecting to Database
 try:
     cnx = mysql.connector.connect(**config)
     cursor = cnx.cursor()
@@ -26,9 +26,10 @@ except mysql.connector.Error as err:
         print("Database does not exist")
     else:
         print(err)
+    exit()
 
+# Creating tables
 print("Do you want to drop and re-create tables? y if yes, any other character if no")
-
 if input("Enter input:") == 'y':
         
     TABLES = {}
@@ -57,6 +58,7 @@ if input("Enter input:") == 'y':
         city_name varchar(255),  \
         county_id integer , \
         primary key(city_id), \
+        constraint uc_county unique (city_name, county_id), \
         constraint fk_county foreign key(county_id) references county(county_id) \
         ) ENGINE=InnoDB "
     )
@@ -70,14 +72,15 @@ if input("Enter input:") == 'y':
         place_of_birth varchar(45) default null, \
         city_id int, \
         primary key(peoples_id), \
+        constraint unc_person unique (given_name, family_name, date_of_birth, place_of_birth), \
         constraint fk_city foreign key(city_id) references city(city_id) \
         ) ENGINE=InnoDB "
     )
 
-
+    cursor.execute('SET FOREIGN_KEY_CHECKS=0')
     for table in TABLES:
         try:
-            cursor.execute('SET FOREIGN_KEY_CHECKS=0')
+            
             cursor.execute("drop table if exists {}".format(table))
             print("Creating table {} :".format(table), end='')
             cursor.execute(TABLES[table])
@@ -85,9 +88,12 @@ if input("Enter input:") == 'y':
             print(err.msg)
         else:
             print("OK")
+    cursor.execute('SET FOREIGN_KEY_CHECKS=1')
+#Roundabout way to disable FK constraints to drop
 
-cursor.execute('SET FOREIGN_KEY_CHECKS=1')
 
+
+###
 #Adding data queries
 add_person = (
     "insert ignore into peoples"
@@ -115,20 +121,24 @@ add_cities = (
 
 
 # read people CSV file and insert into tables
-with open('/data/people.csv') as csv_file:
-  reader = csv.reader(csv_file, delimiter=',')
-  next(reader)
-  id_count = cursor.lastrowid
-  for row in reader:
-    data_people = {
-        'peoples_id': id_count,
-        'given_name': row[0],
-        'family_name': row[1],
-        'date_of_birth': row[2],
-        'place_of_birth': row[3],
-    }
-    cursor.execute(add_person, data_people)
-    id_count = cursor.lastrowid + 1
+try:
+    with open('/data/people.csv') as csv_file:
+        reader = csv.reader(csv_file, delimiter=',')
+        next(reader)
+        id_count = cursor.lastrowid
+        for row in reader:
+            data_people = {
+                'peoples_id': id_count,
+                'given_name': row[0],
+                'family_name': row[1],
+                'date_of_birth': row[2],
+                'place_of_birth': row[3],
+            }
+            cursor.execute(add_person, data_people)
+            id_count = cursor.lastrowid + 1
+        print("Successfully imported peoples csv")
+except IOError:
+    print("Can't read peoples csv file")
 
 # read places CSV file and insert into tables
 try:
@@ -162,19 +172,25 @@ try:
             cursor.execute(add_countries, data_country)
             cursor.execute(add_counties, data_county)
             cursor.execute(add_cities, data_city)
+        print("Successfully imported places csv")
 except IOError:
-    print("Could not read csv file")
+    print("Could not read places csv file")
 
+
+##Update people foreign key
 update_people_fk = (
     "update peoples as a\
     inner join city as b on a.place_of_birth = b.city_name \
     set a.city_id = b.city_id  \
     where a.city_id is NULL "
 )
-
 cursor.execute(update_people_fk)
 
 
+
+## Query to get the intended outcome
+## Using foreign key to inner join with normalized database
+## use left-join incase no match???? 
 country_people_count = (
     " select a.country_name, count(*)\
     from country as a \
@@ -185,17 +201,25 @@ country_people_count = (
     order by count(*)  desc\
     "
 )
-
 cursor.execute(country_people_count)
-result = cursor.fetchall()
-with open('/data/solution.json', 'w') as json_file:
-    rows = {}
-    for x in result:
-        row = {x[0] : x[1]}
-        rows.update(row)
-    json.dump(rows, json_file, separators=(',', ':'))
-    
+print("Getting intended output")
 
+##Getting query and outputting in a json
+result = cursor.fetchall()
+try:
+    with open('/data/solution.json', 'w') as json_file:
+        rows = {}
+        for x in result:
+            row = {x[0] : x[1]}
+            rows.update(row)
+        print("Output:", rows)
+        json.dump(rows, json_file, separators=(',', ':'))
+    print("Successfully wrote output in a json file in /data/solution")
+except IOError:
+    print("Unable to write output in a file")
+
+
+## Close connection
 cnx.commit()
 cursor.close()
 cnx.close()

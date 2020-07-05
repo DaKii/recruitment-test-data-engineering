@@ -23,6 +23,7 @@ create table city (
 	city_name varchar(255), 
     county_id integer ,
 	primary key(city_id),
+	constraint uc_county unique (city_name, county_id),
     constraint fk_county foreign key(county_id) references county(county_id)
 ) ;
 
